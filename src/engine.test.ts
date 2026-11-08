@@ -1,297 +1,120 @@
-﻿import type { Action, Condition, Runtime, StoryNode, Work } from "./schema";
-import { makeItem } from "./schema";
-export function testCondition(c: Condition, s: Runtime): boolean {
-  const [scope, ...rest] = c.key.split(":");
-  const key = rest.join(":");
-  const lists: Record<string, string[]> = {
-    visited: s.visited,
-    read: s.read,
-    clue: s.clues,
-    unlocked: s.unlocked,
-    completed: s.completed,
-  };
-  const actual =
-    scope === "ui"
-      ? s.ui?.[rest[0]]?.[rest.slice(1).join(":")]
-      : lists[scope]
-        ? lists[scope].includes(key)
-        : s.variables[c.key];
-  switch (c.op) {
-    case "eq":
-      return actual === c.value;
-    case "neq":
-      return actual !== c.value;
-    case "gt":
-      return typeof actual === "number" && actual > Number(c.value);
-    case "lt":
-      return typeof actual === "number" && actual < Number(c.value);
-    case "includes":
-      return String(actual ?? "").includes(String(c.value));
-  }
-}
-function apply(a: Action, s: Runtime, w: Work) {
-  switch (a.type) {
-    case "date":
-      if (/^\d{4}-\d{2}-\d{2}$/.test(String(a.value))) s.date = String(a.value);
-      break;
-    case "variable":
-      s.variables[a.key] = a.value;
-      break;
-    case "unlock":
-      if (!s.unlocked.includes(a.key)) s.unlocked.push(a.key);
-      break;
-    case "hide":
-      if (!s.hidden.includes(a.key)) s.hidden.push(a.key);
-      break;
-    case "notification":
-      s.notifications.push(String(a.value));
-      break;
-    case "call":
-      s.notifications.push(`${String(a.value)} 来电`);
-      s.incomingCall = {
-        caller: String(a.value),
-        target: a.key,
-        status: "ringing",
-      };
-      break;
-    case "clue":
-      if (!s.clues.includes(a.key)) s.clues.push(a.key);
-      break;
-    case "time":
-      s.time = String(a.value);
-      s.clockRemainderMs = 0;
-      break;
-    case "ending":
-      if (!s.endings.includes(String(a.value))) s.endings.push(String(a.value));
-      break;
-    case "choice":
-      if (!s.choices.some((c) => c.target === a.key))
-        s.choices.push({ label: String(a.value), target: a.key });
-      break;
-    case "message":
-      s.messages[a.key] = [
-        ...(s.messages[a.key] ?? []),
-        makeItem({
-          id: `event-${a.key}-${s.completed.length}-${s.messages[a.key]?.length ?? 0}`,
-          title: "新消息",
-          sender: w.phone.owner,
-          body: String(a.value),
-        }),
-      ];
-      break;
-  }
-}
-function runQueue(
-  w: Work,
-  s: Runtime,
-  event: string,
-  target: string,
-  queue: string[],
-  resuming = new Set<string>(),
-) {
-  const seen = new Set<string>();
-  let steps = 0;
-  while (queue.length && steps++ < 200) {
-    const id = queue.shift()!;
-    const n = w.nodes.find((n) => n.id === id);
-    if (!n || seen.has(id) || (n.once && s.completed.includes(id))) continue;
-    seen.add(id);
-    const conditions = n.conditions.map((c) => testCondition(c, s));
-    const pass =
-      n.logic === "or"
-        ? conditions.some(Boolean)
-        : n.logic === "not"
-          ? !conditions.every(Boolean)
-          : conditions.every(Boolean);
-    if (!pass) continue;
-    if (n.type === "delay" && !resuming.has(id)) {
-      s.scheduled ??= [];
-      if (!s.scheduled.some((t) => t.nodeId === id))
-        s.scheduled.push({
-          nodeId: id,
-          due: (s.elapsedMs ?? 0) + (n.delayMs ?? 1000),
-        });
-      s.trace.push(`delay:${n.delayMs ?? 1000}ms → ${n.label}`);
-      continue;
-    }
-    if (!s.completed.includes(id)) s.completed.push(id);
-    s.trace.push(`${event}:${target} → ${n.label}`);
-    for (const a of n.actions) {
-      const previous =
-        a.type === "variable"
-          ? s.variables[a.key]
-          : a.type === "time"
-            ? s.time
-            : undefined;
-      apply(a, s, w);
-      if (a.type === "variable" && previous !== s.variables[a.key])
-        queue.push(
-          ...w.nodes
-            .filter(
-              (n) =>
-                n.event === "variable" && (!n.target || n.target === a.key),
-            )
-            .map((n) => n.id),
-        );
-      if (a.type === "time" && previous !== s.time)
-        queue.push(
-          ...w.nodes
-            .filter(
-              (n) => n.event === "time" && (!n.target || n.target === s.time),
-            )
-            .map((n) => n.id),
-        );
-    }
-    if (
-      n.type === "ending" &&
-      !n.actions.some((a) => a.type === "ending") &&
-      !s.endings.includes(n.label)
-    )
-      s.endings.push(n.label);
-    if (n.type === "choice") {
-      for (const id of n.next)
-        if (!s.choices.some((c) => c.target === id))
-          s.choices.push({
-            label: w.nodes.find((n) => n.id === id)?.label ?? id,
-            target: id,
-          });
-    } else queue.push(...n.next);
-  }
-  s.trace = s.trace.slice(-100);
-  return s;
-}
-export function dispatch(
-  w: Work,
-  previous: Runtime,
-  event: string,
-  target = "",
-): Runtime {
-  const s = structuredClone(previous);
-  if (event === "choose") s.choices = [];
-  if (event === "openApp" && !s.visited.includes(target))
-    s.visited.push(target);
-  if (event === "read" && !s.read.includes(target)) s.read.push(target);
-  if (w.mode === "explore") return s;
-  const queue = w.nodes
-    .filter(
-      (n) =>
-        (n.type === "start" && event === "start") ||
-        (n.event === event && (!n.target || n.target === target)),
-    )
-    .map((n) => n.id);
-  return runQueue(w, s, event, target, queue);
-}
-export function advance(
-  w: Work,
-  previous: Runtime,
-  milliseconds: number,
-): Runtime {
-  const s = structuredClone(previous);
-  const delta = Number.isFinite(milliseconds)
-    ? Math.max(0, Math.min(milliseconds, 86400000))
-    : 0;
-  const end = (s.elapsedMs ?? 0) + delta;
-  s.elapsedMs ??= 0;
-  s.clockRemainderMs ??= 0;
-  s.scheduled ??= [];
-  let resumes = 0;
-  while (true) {
-    s.scheduled.sort((a, b) => a.due - b.due);
-    const due =
-      w.mode !== "explore" && resumes < 200 ? s.scheduled[0] : undefined;
-    const clockAt = s.elapsedMs + 60000 - s.clockRemainderMs;
-    const next = Math.min(
-      end,
-      clockAt,
-      due ? Math.max(s.elapsedMs, due.due) : Infinity,
+import { describe, it, expect } from "vitest";
+import { createWork } from "./demo";
+import {
+  dispatch,
+  choose,
+  testCondition,
+  visible,
+  validateGraph,
+} from "./engine";
+import { initialRuntime, validateWork, safeMedia } from "./schema";
+import { parseChat, parseCsv } from "./chat";
+import { registry } from "./registry";
+describe("story progression", () => {
+  it("reveals clue, unlocks photo and reaches exactly one selected ending", () => {
+    const w = createWork();
+    const original = initialRuntime(w);
+    const started = dispatch(w, original, "start");
+    expect(started.notifications).toHaveLength(1);
+    expect(visible(w.data.photos[0], started)).toBe(false);
+    const read = dispatch(w, started, "read", "note-clue");
+    expect(read.clues).toContain("ticket");
+    expect(visible(w.data.photos[0], read)).toBe(true);
+    expect(read.choices).toHaveLength(2);
+    const result = choose(w, read, "good");
+    expect(result.endings).toHaveLength(1);
+    expect(result.endings[0]).toContain("雨停了");
+    expect(original.clues).toEqual([]);
+    expect(w.variables.found).toBe(false);
+  });
+  it("keeps pending choices during exploration and rejects unoffered choices", () => {
+    const w = createWork();
+    const s = dispatch(w, initialRuntime(w), "read", "note-clue");
+    expect(dispatch(w, s, "openApp", "photos").choices).toHaveLength(2);
+    expect(choose(w, s, "start")).toEqual(s);
+  });
+  it("prevents repeated effects and bounds cycles", () => {
+    const w = createWork();
+    w.nodes[0].next = ["start"];
+    const s = dispatch(w, initialRuntime(w), "start");
+    expect(s.notifications).toHaveLength(1);
+    expect(dispatch(w, s, "start").notifications).toHaveLength(1);
+    expect(validateGraph(w.nodes).some((e) => e.includes("自环"))).toBe(true);
+  });
+  it("supports typed AND/OR/NOT and scoped conditions", () => {
+    const w = createWork(),
+      s = initialRuntime(w);
+    s.variables.score = 5;
+    s.clues = ["ticket"];
+    expect(testCondition({ key: "score", op: "gt", value: 4 }, s)).toBe(true);
+    expect(
+      testCondition({ key: "clue:ticket", op: "eq", value: true }, s),
+    ).toBe(true);
+    w.nodes[0].conditions = [{ key: "found", op: "eq", value: true }];
+    expect(dispatch(w, s, "start").notifications).toHaveLength(0);
+    w.nodes[0].logic = "not";
+    expect(dispatch(w, s, "start").notifications).toHaveLength(1);
+  });
+  it("detects broken references and unreachable nodes", () => {
+    const w = createWork();
+    w.nodes.push({
+      ...w.nodes[0],
+      id: "orphan",
+      type: "action",
+      event: "",
+      next: ["missing"],
+    });
+    expect(validateGraph(w.nodes).join()).toContain("missing");
+    expect(validateGraph(w.nodes).join()).toContain("不可达");
+  });
+  it("free exploration bypasses story effects", () => {
+    const w = createWork();
+    w.mode = "explore";
+    expect(dispatch(w, initialRuntime(w), "start").notifications).toEqual([]);
+  });
+  it("preserves save state through JSON roundtrip", () => {
+    const w = createWork();
+    const s = dispatch(w, initialRuntime(w), "read", "note-clue");
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
+  });
+});
+describe("import and schema safety", () => {
+  it("validates version and rejects invalid structures", () => {
+    const w = createWork();
+    expect(validateWork(w).formatVersion).toBe(1);
+    expect(() => validateWork({ ...w, formatVersion: 2 })).toThrow();
+    expect(() => validateWork({ ...w, phone: {} })).toThrow();
+  });
+  it("rejects executable and remote media", () => {
+    expect(safeMedia("javascript:alert(1)")).toBe("");
+    expect(safeMedia("data:image/svg+xml;base64,PHN2Zz4=")).toBe("");
+    expect(safeMedia("https://example.com/image.png")).toBe("");
+    expect(safeMedia("data:image/png;base64,YQ==")).not.toBe("");
+  });
+  it("parses script and explains invalid lines", () => {
+    const r = parseChat(
+      "[2026-09-01 08:30] 小林：你到学校了吗？\n[2026-09-01 08:31] 我：快到了\ninvalid",
     );
-    s.clockRemainderMs += next - s.elapsedMs;
-    s.elapsedMs = next;
-    if (s.clockRemainderMs >= 60000) {
-      s.clockRemainderMs -= 60000;
-      const match = s.time.match(/^(\d{1,2}):(\d{2})$/);
-      if (match) {
-        const value = (Number(match[1]) * 60 + Number(match[2]) + 1) % 1440;
-        s.time =
-          String(Math.floor(value / 60)).padStart(2, "0") +
-          ":" +
-          String(value % 60).padStart(2, "0");
-        if (w.mode !== "explore")
-          runQueue(
-            w,
-            s,
-            "time",
-            s.time,
-            w.nodes
-              .filter(
-                (n) => n.event === "time" && (!n.target || n.target === s.time),
-              )
-              .map((n) => n.id),
-          );
-      }
+    expect(r.items).toHaveLength(2);
+    expect(r.items[1].outgoing).toBe(true);
+    expect(r.errors[0]).toContain("第 3 行");
+  });
+  it("handles quoted CSV and multiline message fields", () => {
+    const r = parseCsv(
+      'time,sender,body\n09:41,小林,"你好,世界\n第二行"\n09:42,我,收到',
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.items).toHaveLength(2);
+    expect(r.items[0].body).toBe("你好,世界\n第二行");
+    expect(parseCsv("a,b,c\n1,2,3").errors).toHaveLength(1);
+  });
+  it("registers all 47 named apps with editable story data", () => {
+    const w = createWork();
+    expect(registry).toHaveLength(49);
+    for (const a of registry) {
+      expect(w.apps.some((x) => x.id === a.id)).toBe(true);
+      expect(w.data[a.id].length).toBeGreaterThan(0);
+      expect(a.tabs.length).toBeGreaterThan(0);
     }
-    if (due && due.due <= s.elapsedMs) {
-      s.scheduled.splice(s.scheduled.indexOf(due), 1);
-      resumes++;
-      runQueue(w, s, "timer", due.nodeId, [due.nodeId], new Set([due.nodeId]));
-      continue;
-    }
-    if (s.elapsedMs >= end) break;
-  }
-  return s;
-}
-export function choose(w: Work, s: Runtime, id: string) {
-  const node = w.nodes.find((n) => n.id === id);
-  if (!node || !s.choices.some((c) => c.target === id)) return s;
-  return dispatch(
-    {
-      ...w,
-      nodes: w.nodes.map((n) =>
-        n.id === id ? { ...n, event: "choose", target: id } : n,
-      ),
-    },
-    s,
-    "choose",
-    id,
-  );
-}
-export function validateGraph(nodes: StoryNode[]) {
-  const errors: string[] = [];
-  for (const n of nodes) {
-    for (const id of n.next)
-      if (!nodes.some((x) => x.id === id))
-        errors.push(`${n.label} 引用了不存在的节点 ${id}`);
-    if (n.next.includes(n.id))
-      errors.push(`${n.label} 存在自环（运行时会阻止循环）`);
-  }
-  const reachable = new Set<string>();
-  const visit = (id: string) => {
-    if (reachable.has(id)) return;
-    reachable.add(id);
-    nodes.find((n) => n.id === id)?.next.forEach(visit);
-  };
-  nodes
-    .filter((n) => n.type === "start" || n.event)
-    .forEach((n) => visit(n.id));
-  nodes
-    .filter((n) => n.type !== "comment" && !reachable.has(n.id))
-    .forEach((n) => errors.push(`${n.label} 不可达`));
-  return errors;
-}
-export function visible(
-  item: { id: string; hidden: boolean; unlock: string; time?: string },
-  s: Runtime,
-  viewTime?: string,
-) {
-  if (
-    !s.hidden.includes(item.id) &&
-    (!item.hidden || s.unlocked.includes(item.id)) &&
-    (!item.unlock ||
-      testCondition({ key: item.unlock, op: "eq", value: true }, s))
-  ) {
-    // 时间回溯：只显示时间戳 <= 回溯日结束的内容
-    if (viewTime && item.time) return item.time <= viewTime + " 23:59";
-    return true;
-  }
-  return false;
-}
+  });
+});
