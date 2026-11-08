@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import blank from "../../stories/blank/story.json";
 import { compileStory } from "../story-engine/compiler";
 import {
@@ -82,17 +82,17 @@ it("preserves free grid gaps and rejects colliding fixed placements", () => {
   expect(() => validateLayout(l, w)).toThrow("位置冲突");
 });
 
-it("adds store to legacy work without changing author data or other app states", () => {
+it("leaves authored work untouched so App Store stays hidden", () => {
   const w = work();
   w.apps = w.apps.filter((a) => a.id !== "appstore");
   const before = JSON.stringify(w);
   const effective = ensureAppStore(w);
-  expect(effective.apps).toHaveLength(w.apps.length + 1);
+  expect(effective.apps).toEqual(w.apps);
   expect(JSON.stringify(w)).toBe(before);
-  expect(effective.apps.filter((a) => a.id !== "appstore")).toEqual(w.apps);
+  expect(effective.apps.some((a) => a.id === "appstore")).toBe(false);
   expect(
     validateLayout(defaultLayout(w), w).apps.some((a) => a.id === "appstore"),
-  ).toBe(true);
+  ).toBe(false);
 });
 
 it("migrates preview folders once while preserving custom folders and widgets", async () => {
