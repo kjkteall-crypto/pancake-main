@@ -1,0 +1,299 @@
+{
+  "scriptVersion": 1,
+  "id": "ui-test-phone-v2",
+  "title": "捡手机",
+  "description": "仅用于界面测试，不含剧情",
+  "revision": 2,
+  "phone": {
+    "owner": "机主",
+    "date": "2026-10-25",
+    "time": "09:41",
+    "battery": 94,
+    "network": "5G",
+    "wallpaper": "apple-wwdc26"
+  },
+  "installedApps": [
+    {
+      "id": "wechat",
+      "name": "微信",
+      "installed": true,
+      "visible": true,
+      "dock": false,
+      "folder": "",
+      "icon": ""
+    },
+    "phone",
+    "messages",
+    "contacts",
+    "photos",
+    {
+      "id": "camera",
+      "name": "相机",
+      "installed": true,
+      "visible": true,
+      "dock": true,
+      "folder": "",
+      "icon": ""
+    },
+    "safari",
+    "notes",
+    "calendar",
+    "mail",
+    "clock",
+    "music",
+    "maps",
+    "weather",
+    "calculator",
+    "settings",
+    {
+      "id": "appstore",
+      "name": "App Store",
+      "installed": true,
+      "visible": false,
+      "dock": false,
+      "folder": "",
+      "icon": ""
+    },
+    "qq",
+    "weibo",
+    "redbook",
+    "forum"
+  ],
+  "contacts": [
+    {
+      "id": "test-contact",
+      "name": "测试联系人",
+      "phone": "",
+      "bio": "这是一条测试内容。"
+    }
+  ],
+  "chats": [
+    {
+      "id": "test-chat-messages",
+      "app": "messages",
+      "title": "测试会话",
+      "participants": [
+        "owner",
+        "test-contact"
+      ],
+      "messages": [
+        {
+          "id": "test-message-messages",
+          "body": "这是一条测试消息。",
+          "senderId": "test-contact"
+        }
+      ]
+    },
+    {
+      "id": "test-chat-wechat",
+      "app": "wechat",
+      "title": "测试会话",
+      "participants": [
+        "owner",
+        "test-contact"
+      ],
+      "messages": [
+        {
+          "id": "test-message-wechat",
+          "body": "这是一条测试消息。",
+          "senderId": "test-contact"
+        }
+      ]
+    },
+    {
+      "id": "test-chat-qq",
+      "app": "qq",
+      "title": "测试会话",
+      "participants": [
+        "owner",
+        "test-contact"
+      ],
+      "messages": [
+        {
+          "id": "test-message-qq",
+          "body": "这是一条测试消息。",
+          "senderId": "test-contact"
+        }
+      ]
+    }
+  ],
+  "content": {
+    "phone": [
+      {
+        "id": "test-item-phone",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "contacts": [
+      {
+        "id": "test-item-contacts",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "photos": [
+      {
+        "id": "test-item-photos",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "camera": [
+      {
+        "id": "test-item-camera",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "safari": [
+      {
+        "id": "test-item-safari",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "notes": [
+      {
+        "id": "test-item-notes",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "calendar": [
+      {
+        "id": "test-item-calendar",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "mail": [
+      {
+        "id": "test-item-mail",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "clock": [
+      {
+        "id": "test-item-clock",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "music": [
+      {
+        "id": "test-item-music",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "maps": [
+      {
+        "id": "test-item-maps",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "weather": [
+      {
+        "id": "dujiangyan-weather",
+        "title": "都江堰市",
+        "body": "都江堰今日多云转阵雨，空气清新，适合游览青城山与都江堰景区；山区午后易有阵雨，建议随身携带雨具。",
+        "sender": "天气",
+        "kind": "text",
+        "meta": {
+          "locationLabel": "四川 · 成都",
+          "temperature": "21",
+          "high": "24",
+          "low": "17",
+          "condition": "多云转阵雨",
+          "humidity": "78%",
+          "sunrise": "06:42",
+          "aqi": "优 (AQI 38)",
+          "rain": "60%",
+          "wind": "东北风 2级",
+          "hourly": "[{\"time\":\"现在\",\"temperature\":21,\"rain\":\"20%\",\"wind\":\"东北风 2级\"},{\"time\":\"14时\",\"temperature\":23,\"rain\":\"40%\",\"wind\":\"东风 2级\"},{\"time\":\"16时\",\"temperature\":24,\"rain\":\"55%\",\"wind\":\"东南风 2级\"},{\"time\":\"18时\",\"temperature\":22,\"rain\":\"60%\",\"wind\":\"南风 1级\"},{\"time\":\"20时\",\"temperature\":19,\"rain\":\"70%\",\"wind\":\"南风 1级\"}]",
+          "daily": "[{\"label\":\"今天\",\"low\":17,\"high\":24},{\"label\":\"明天\",\"low\":16,\"high\":22},{\"label\":\"后天\",\"low\":18,\"high\":25},{\"label\":\"周四\",\"low\":19,\"high\":26},{\"label\":\"周五\",\"low\":17,\"high\":23}]"
+        }
+      }
+    ],
+    "calculator": [
+      {
+        "id": "test-item-calculator",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "settings": [],
+    "weibo": [
+      {
+        "id": "test-item-weibo",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "redbook": [
+      {
+        "id": "test-item-redbook",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ],
+    "forum": [
+      {
+        "id": "test-item-forum",
+        "title": "测试内容",
+        "body": "这是一条测试内容。",
+        "sender": "测试用户",
+        "kind": "text",
+        "meta": {}
+      }
+    ]
+  },
+  "variables": {},
+  "events": [],
+  "tests": []
+}
