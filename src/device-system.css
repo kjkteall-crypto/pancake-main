@@ -705,6 +705,12 @@
   text-align: left;
   padding: 5px 9px;
 }
+/* The composer is now a real input so the player's own keyboard opens. */
+.ios18 input.native-compose-field {
+  border: 0;
+  outline: none;
+  caret-color: #007aff;
+}
 .ios18 .device-keyboard {
   position: absolute;
   z-index: 82;
@@ -724,9 +730,6 @@
   to {
     transform: translateY(0);
   }
-}
-.ios18 .keyboard-open .app-screen {
-  padding-bottom: 370px;
 }
 .ios18 .keyboard-draft {
   display: flex;

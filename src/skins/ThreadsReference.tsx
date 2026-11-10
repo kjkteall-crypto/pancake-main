@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   Home,
   Send,
@@ -16,12 +16,6 @@ import {
   BellOff,
   ChevronRight,
   X,
-  Smile,
-  Globe,
-  Mic,
-  Delete,
-  ArrowUp,
-  CornerDownLeft,
   Pin,
 } from "lucide-react";
 import type { SkinProps } from "../AppSkins";
@@ -40,9 +34,6 @@ export function ThreadsReference(p: SkinProps) {
     [filter, setFilter] = useState("全部"),
     [side, setSide] = useState(false),
     [compose, setCompose] = useState(false),
-    [keyboard, setKeyboard] = useState(false),
-    [shift, setShift] = useState(false),
-    [numbers, setNumbers] = useState(false),
     [options, setOptions] = useState(false),
     [selected, setSelected] = useState<Item | null>(null);
   const local = posts.map((body, n) =>
@@ -369,7 +360,6 @@ export function ThreadsReference(p: SkinProps) {
               setSelected(null);
               if (n === 2) {
                 setCompose(true);
-                setKeyboard(true);
               } else setTab(["首页", "消息", "", "动态", "个人主页"][n]);
             }}
           >
@@ -434,10 +424,7 @@ export function ThreadsReference(p: SkinProps) {
         <section className="tr-compose">
           <header>
             <button
-              onClick={() => {
-                setCompose(false);
-                setKeyboard(false);
-              }}
+              onClick={() => setCompose(false)}
             >
               取消
             </button>
@@ -452,11 +439,10 @@ export function ThreadsReference(p: SkinProps) {
               <b>{p.owner}</b>
               <span className="tr-muted"> › 社群或话题</span>
               <textarea
+                autoFocus
                 aria-label="串文内容"
                 placeholder="有什么新鲜事吗？"
                 value={draft}
-                inputMode="none"
-                onFocus={() => setKeyboard(true)}
                 onChange={(e) => setDraft(e.target.value)}
                 maxLength={2000}
               />
@@ -474,89 +460,12 @@ export function ThreadsReference(p: SkinProps) {
                 setPosts([draft.trim(), ...posts]);
                 setDraft("");
                 setCompose(false);
-                setKeyboard(false);
                 setTab("首页");
               }}
             >
               发布
             </button>
           </div>
-          {keyboard && (
-            <div className="tr-keyboard">
-              <div className="tr-candidates">
-                {["我", "你", "好", "他", "不", "这", "这个", "对"].map((k) => (
-                  <button
-                    key={k}
-                    onClick={() =>
-                      setDraft(draft + (shift ? k.toUpperCase() : k))
-                    }
-                  >
-                    {k}
-                  </button>
-                ))}
-                <button
-                  aria-label="收起串文键盘"
-                  onClick={() => setKeyboard(false)}
-                >
-                  ⌄
-                </button>
-              </div>
-              {(numbers
-                ? ["1234567890", "-/:;()&@", ".,?!"]
-                : ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
-              ).map((row, n) => (
-                <div className="tr-key-row" key={n}>
-                  {n === 2 && (
-                    <button
-                      aria-label="大写"
-                      aria-pressed={shift}
-                      onClick={() => setShift(!shift)}
-                    >
-                      <ArrowUp />
-                    </button>
-                  )}
-                  {[...row].map((k) => (
-                    <button key={k} onClick={() => setDraft(draft + k)}>
-                      {k}
-                    </button>
-                  ))}
-                  {n === 2 && (
-                    <button
-                      aria-label="删除串文字符"
-                      onClick={() => setDraft(draft.slice(0, -1))}
-                    >
-                      <Delete />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div className="tr-key-row">
-                <button onClick={() => setNumbers(!numbers)}>
-                  {numbers ? "ABC" : "123"}
-                </button>
-                <button>
-                  <Smile />
-                </button>
-                <button
-                  className="space"
-                  aria-label="空格"
-                  onClick={() => setDraft(draft + " ")}
-                >
-                  {" "}
-                </button>
-                <button
-                  aria-label="换行"
-                  onClick={() => setDraft(draft + "\n")}
-                >
-                  <CornerDownLeft />
-                </button>
-              </div>
-              <footer>
-                <Globe />
-                <Mic />
-              </footer>
-            </div>
-          )}
         </section>
       )}
       {options && (

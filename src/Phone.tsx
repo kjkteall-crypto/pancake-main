@@ -21,8 +21,6 @@ import {
 import {
   DeviceLock,
   ControlCenter,
-  DeviceKeyboard,
-  KeyboardContext,
   NativeSettings,
 } from "./DeviceSystem";
 import { AppArtwork, hasNativeArtwork } from "./AppArtwork";
@@ -141,13 +139,14 @@ function PhoneRuntime({
   const [locked, setLocked] = useState(!creator);
   const [pinOpen, setPinOpen] = useState(false);
   const [quickCamera, setQuickCamera] = useState(false);
-  const [keyboard, setKeyboard] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
   const appSnapshots = useRef(new Map<string, HTMLElement>());
   const [banner, setBanner] = useState("");
   const noticesSeen = useRef(0);
   const [contextApp, setContextApp] = useState("");
   const [deviceScale, setDeviceScale] = useState(0.84);
+  // Baseline used to tell an OS keyboard apart from a real window resize.
+  const viewportBase = useRef({ w: window.innerWidth, h: window.innerHeight });
   const shell = useRef<HTMLDivElement>(null);
   const gesture = useRef({ x: 0, y: 0, time: 0, zone: "" });
   const [launchOrigin, setLaunchOrigin] = useState(screenOrigin);
@@ -176,6 +175,19 @@ function PhoneRuntime({
     const el = shell.current;
     if (!el) return;
     const fit = () => {
+      const vv = window.visualViewport;
+      const base = viewportBase.current;
+      if (vv) {
+        if (window.innerWidth !== base.w) {
+          base.w = window.innerWidth;
+          base.h = vv.height;
+        } else {
+          // Same width but a much shorter visual viewport means the player's
+          // own OS keyboard is up. Keep the phone exactly where it is.
+          if (vv.height < base.h * 0.75) return;
+          base.h = vv.height;
+        }
+      }
       const parent = el.parentElement!;
       const w = parent.clientWidth;
       const cs = getComputedStyle(parent);
@@ -307,7 +319,6 @@ function PhoneRuntime({
       return;
     if (id === "appstore") setStoreFromSettings(app === "settings");
     setApp(id);
-    setKeyboard(false);
     setRecent((v) => [id, ...v.filter((a) => a !== id)].slice(0, 8));
     setFolder("");
     setPanel("");
@@ -371,9 +382,8 @@ function PhoneRuntime({
       style={{ "--phone-scale": deviceScale } as CSSProperties}
       className={`phone-shell ios18 ${work.phone.theme === "dark" ? "dark-phone" : ""}`}
     >
-      <KeyboardContext.Provider value={setKeyboard}>
         <div
-          className={`phone-screen ${wallpaperClass(wallpaper)} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""} ${keyboard ? "keyboard-open" : ""}`}
+          className={`phone-screen ${wallpaperClass(wallpaper)} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""}`}
           style={wallpaperStyle}
           data-app={app}
           onDragStart={(e) => e.preventDefault()}
@@ -414,7 +424,6 @@ function PhoneRuntime({
             else if ((g.zone === "bottom" || g.zone === "lock") && dy < -55) {
               gestureConsumed.current = true;
               if (!locked) captureApp();
-              setKeyboard(false);
               if (panel) {
                 setPanel("");
               } else if (locked) {
@@ -838,7 +847,6 @@ function PhoneRuntime({
               </div>
             </div>
           )}
-          {keyboard && <DeviceKeyboard close={() => setKeyboard(false)} />}
           {loadError && (
             <button className="runtime-error" onClick={() => setLoadError("")}>
               {loadError}
@@ -855,7 +863,6 @@ function PhoneRuntime({
               }
               captureApp();
               setHomeRequest((n) => n + 1);
-              setKeyboard(false);
               setApp("");
               setFolder("");
               setPanel("");
@@ -864,7 +871,6 @@ function PhoneRuntime({
           <div className="screen-dimmer" />
           <div className="hardware-reflection" />
         </div>
-      </KeyboardContext.Provider>
     </div>
   );
 }

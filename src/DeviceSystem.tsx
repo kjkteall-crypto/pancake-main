@@ -1,10 +1,10 @@
-﻿import { SystemNotifications } from "./SystemNotifications";
+import { SystemNotifications } from "./SystemNotifications";
 import {
   ConnectivityModule,
   SliderModule,
 } from "./vendor/ios-web/ControlModules";
 import { UnlockHandle } from "./vendor/ios-web/UnlockHandle";
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext } from "react";
 import {
   LockKeyhole,
   Flashlight,
@@ -47,15 +47,27 @@ export function NativeComposer({
   creator: boolean;
   onAdd: () => void;
 }) {
-  const open = useContext(KeyboardContext);
+  const [draft, setDraft] = useState("");
+  if (creator)
+    return (
+      <button
+        className="native-compose-field"
+        aria-label="添加消息"
+        onClick={onAdd}
+      >
+        添加消息
+      </button>
+    );
+  // A real input: tapping it opens the player's own OS keyboard instead of a
+  // drawn-on-screen keyboard. The phone frame itself never moves.
   return (
-    <button
+    <input
       className="native-compose-field"
-      aria-label={creator ? "添加消息" : "输入消息"}
-      onClick={() => (creator ? onAdd() : open(true))}
-    >
-      {creator ? "添加消息" : ""}
-    </button>
+      aria-label="输入消息"
+      placeholder="输入消息"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+    />
   );
 }
 export function DeviceLock({

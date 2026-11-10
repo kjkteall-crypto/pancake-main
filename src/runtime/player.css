@@ -1,12 +1,24 @@
+/* The OS keyboard is an overlay: it must never resize or shift the phone.
+   100dvh shrinks when the keyboard opens, so use the static small-viewport
+   height and pin the stage to the viewport instead. */
 .story-runtime {
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100svh;
   min-height: 320px;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  overscroll-behavior: none;
   background: radial-gradient(ellipse at 50% 40%, #2b2c31 0%, #1a1b1f 55%, #101114 100%);
+}
+html:has(.story-runtime),
+body:has(.story-runtime) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 .story-runtime .phone-stage {
   width: 100%;
