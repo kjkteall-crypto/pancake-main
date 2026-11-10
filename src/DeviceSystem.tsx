@@ -4,12 +4,11 @@ import {
   SliderModule,
 } from "./vendor/ios-web/ControlModules";
 import { UnlockHandle } from "./vendor/ios-web/UnlockHandle";
-import { useState, useEffect, createContext } from "react";
+import { useState, useEffect } from "react";
 import {
   LockKeyhole,
   Flashlight,
   Camera,
-  Delete,
   ChevronDown,
   Play,
   SkipForward,
@@ -18,9 +17,6 @@ import {
   Monitor,
   Timer,
   Calculator,
-  Globe,
-  Mic,
-  ArrowUp,
   ChevronUp,
   Plus,
   Power,
@@ -39,7 +35,6 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import type { Work } from "./schema";
-export const KeyboardContext = createContext<(open: boolean) => void>(() => {});
 export function NativeComposer({
   creator,
   onAdd,
@@ -414,83 +409,6 @@ export function ControlCenter({
         <ChevronUp size={16} />
       </button>
     </motion.div>
-  );
-}
-export function DeviceKeyboard({ close }: { close: () => void }) {
-  const [value, setValue] = useState(""),
-    [shift, setShift] = useState(false),
-    [numbers, setNumbers] = useState(false);
-  return (
-    <div className="device-keyboard" role="dialog" aria-label="屏幕键盘">
-      <div className="keyboard-draft">
-        <input
-          autoFocus
-          aria-label="消息草稿"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="输入消息"
-        />
-        <button aria-label="收起键盘" onClick={close}>
-          <ChevronDown />
-        </button>
-      </div>
-      <div className="keyboard-candidates">
-        {(value ? [value, "好的", "知道了"] : ["我", "你", "好的"]).map(
-          (v, i) => (
-            <button key={i} onClick={() => setValue(value + v)}>
-              {v}
-            </button>
-          ),
-        )}
-      </div>
-      {(numbers
-        ? ["1234567890", "-/:;()¥&@", ".,?!'"]
-        : ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
-      ).map((row, i) => (
-        <div className="keyboard-row" key={i}>
-          {i === 2 && (
-            <button
-              className="key-special"
-              aria-label="切换大小写"
-              onClick={() => setShift(!shift)}
-            >
-              <ArrowUp size={19} />
-            </button>
-          )}
-          {[...row].map((k) => (
-            <button
-              key={k}
-              onClick={() => setValue(value + (shift ? k.toUpperCase() : k))}
-            >
-              {shift ? k.toUpperCase() : k}
-            </button>
-          ))}
-          {i === 2 && (
-            <button
-              className="key-special"
-              aria-label="退格"
-              onClick={() => setValue(value.slice(0, -1))}
-            >
-              <Delete size={20} />
-            </button>
-          )}
-        </div>
-      ))}
-      <div className="keyboard-row keyboard-bottom">
-        <button onClick={() => setNumbers(!numbers)}>
-          {numbers ? "ABC" : "123"}
-        </button>
-        <button className="key-space" onClick={() => setValue(value + " ")}>
-          空格
-        </button>
-        <button onClick={close}>完成</button>
-      </div>
-      <div className="keyboard-accessories">
-        <Globe size={24} />
-        <small>草稿</small>
-        <Mic size={23} />
-      </div>
-    </div>
   );
 }
 export { NativeSettings } from "./ios/Settings";

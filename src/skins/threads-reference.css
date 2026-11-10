@@ -393,47 +393,6 @@
 .tr-compose-actions > button:disabled {
   background: #bbb;
 }
-.tr-keyboard {
-  background: #e3e4e9;
-  border-radius: 25px 25px 0 0;
-  padding: 8px 6px 10px;
-  flex: none;
-}
-.tr-candidates {
-  display: flex;
-  justify-content: space-between;
-  font-size: 19px;
-  padding: 3px 4px 13px;
-}
-.tr-key-row {
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  margin-bottom: 10px;
-}
-.tr-key-row > button {
-  background: #fff;
-  border-radius: 8px;
-  height: 42px;
-  min-width: 30px;
-  display: grid;
-  place-items: center;
-  font-size: 23px;
-  box-shadow: 0 1px 1px #bbb;
-  padding: 0 4px;
-}
-.tr-key-row .space {
-  flex: 1;
-}
-.tr-keyboard footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 7px 22px 12px;
-}
-.tr-keyboard footer svg {
-  width: 27px;
-  height: 27px;
-}
 .tr-options {
   position: absolute;
   z-index: 25;
@@ -466,9 +425,6 @@
 .threads-reference .tr-compose-content textarea:focus {
   outline: none;
   box-shadow: none !important;
-}
-.phone-shell.ios18:has(.tr-keyboard) .app-screen {
-  bottom: 0;
 }
 .threads-reference .tr-search {
   flex-direction: row;
