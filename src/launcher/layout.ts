@@ -168,7 +168,7 @@ export type HomeEntry = {
   widget?: Widget;
 };
 // 这两个 App 永不出现在主屏幕 / Dock / 资源库：
-// App Store 只从「设置 → 辅助功能」进入；「文件」已彻底移除。
+// App Store 只从「设置 → App Store」进入；「文件」已彻底移除。
 // 写死在代码里，避免旧 localStorage 布局把 visible=true 带回来。
 export const HIDDEN_HOME_IDS = ["appstore", "files"];
 export function homeEntries(layout: DeviceLayout): HomeEntry[] {

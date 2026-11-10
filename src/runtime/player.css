@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #111113;
+  background: radial-gradient(ellipse at 50% 40%, #2b2c31 0%, #1a1b1f 55%, #101114 100%);
 }
 .story-runtime .phone-stage {
   width: 100%;
@@ -16,8 +16,29 @@
 .story-runtime .phone-shell {
   margin: auto;
 }
-@media (max-width: 430px) {
+/* 手机屏幕：去掉外壳和左右黑边，让界面铺满整屏 */
+@media (max-width: 500px) {
   .story-runtime {
     background: #000;
+  }
+  .story-runtime .phone-shell.ios18 {
+    width: 100vw;
+    height: 100dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .story-runtime .phone-shell.ios18::before,
+  .story-runtime .phone-shell.ios18::after {
+    display: none;
+  }
+  .story-runtime .ios18 .phone-screen {
+    width: 100vw;
+    height: 100dvh;
+    zoom: 1;
+    border: 0;
+    border-radius: 0;
   }
 }

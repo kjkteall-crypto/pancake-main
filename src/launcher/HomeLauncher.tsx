@@ -30,6 +30,7 @@ type Props = {
   work: Work;
   storeOpen?: boolean;
   closeStore?: () => void;
+  storeBackLabel?: string;
   layout: DeviceLayout;
   change: (fn: (l: DeviceLayout) => void) => void;
   importLayout: (v: unknown) => void;
@@ -647,7 +648,7 @@ export function HomeLauncher(p: Props) {
               aria-label="关闭App管理"
             >
               <ChevronLeft />
-              桌面
+              {p.storeBackLabel || "桌面"}
             </button>
             <strong>
               {sheet === "library"

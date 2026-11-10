@@ -14,7 +14,7 @@ import {
   Signal,
   Battery,
   Settings,
-  Accessibility,
+  ShoppingBag,
   Image,
   Bell,
   Volume2,
@@ -118,6 +118,8 @@ function Wheel({
     </div>
   );
 }
+// Display-only rows: keep the chevron but never open an empty detail page.
+const NO_DETAIL = new Set(["通知", "声音与触感", "专注模式"]);
 const groups: Row[][] = [
   [
     [Plane, "飞行模式", "#ff9500"],
@@ -130,7 +132,7 @@ const groups: Row[][] = [
   ],
   [
     [Settings, "通用", "#8e8e93"],
-    [Accessibility, "辅助功能", "#007aff"],
+    [ShoppingBag, "App Store", "#007aff"],
     [Image, "墙纸", "#32ade6"],
   ],
   [
@@ -335,15 +337,6 @@ export function NativeSettings({
           </div>
         );
       }
-      case "辅助功能":
-        return (
-          <div className="settings-group">
-            {row("App Store", "", () => onOpen?.("appstore"))}
-            <p className="settings-page-caption">
-              已隐藏的 App 可在「辅助功能」中打开。
-            </p>
-          </div>
-        );
       case "关于本机":
         return (
           <div className="settings-group">
@@ -508,10 +501,15 @@ export function NativeSettings({
                       role={name === "飞行模式" ? undefined : "button"}
                       tabIndex={name === "飞行模式" ? undefined : 0}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") nav.push(name);
+                        if (e.key !== "Enter" || name === "飞行模式") return;
+                        if (NO_DETAIL.has(name)) return;
+                        if (name === "App Store") onOpen?.("appstore");
+                        else nav.push(name);
                       }}
                       onClick={() => {
-                        if (name !== "飞行模式") nav.push(name);
+                        if (name === "飞行模式" || NO_DETAIL.has(name)) return;
+                        if (name === "App Store") onOpen?.("appstore");
+                        else nav.push(name);
                       }}
                     >
                       <span

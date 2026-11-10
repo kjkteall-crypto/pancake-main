@@ -136,6 +136,7 @@ function PhoneRuntime({
   onRuntime?: (s: Runtime) => void;
 }) {
   const [app, setApp] = useState("");
+  const [storeFromSettings, setStoreFromSettings] = useState(false);
   const [homeRequest, setHomeRequest] = useState(0);
   const [locked, setLocked] = useState(!creator);
   const [pinOpen, setPinOpen] = useState(false);
@@ -268,7 +269,7 @@ function PhoneRuntime({
     for (const id of appSnapshots.current.keys())
       if (!recent.includes(id) && id !== app) appSnapshots.current.delete(id);
   };
-  // 「设置 → 辅助功能」里的隐藏 App：主屏幕不显示，但允许从这里直接打开
+  // 「设置 → App Store」里的隐藏 App：主屏幕不显示，但允许从这里直接打开
   const HIDDEN_APP_IDS = ["appstore"];
   const open = (id: string) => {
     if (
@@ -276,6 +277,7 @@ function PhoneRuntime({
       !work.apps.some((a) => a.id === id && a.installed)
     )
       return;
+    if (id === "appstore") setStoreFromSettings(app === "settings");
     setApp(id);
     setKeyboard(false);
     setRecent((v) => [id, ...v.filter((a) => a !== id)].slice(0, 8));
@@ -509,7 +511,15 @@ function PhoneRuntime({
                   "home-" + homeRequest + (app === "appstore" ? "store" : "")
                 }
                 storeOpen={app === "appstore"}
-                closeStore={() => setApp("")}
+                closeStore={() => {
+                  if (storeFromSettings) {
+                    setStoreFromSettings(false);
+                    setApp("settings");
+                  } else {
+                    setApp("");
+                  }
+                }}
+                storeBackLabel={storeFromSettings ? "设置" : "桌面"}
                 work={work}
                 layout={deviceLayout.layout}
                 change={deviceLayout.change}
@@ -526,7 +536,11 @@ function PhoneRuntime({
                     name={small ? undefined : a.name}
                     small={small}
                     custom={a.icon}
-                    date={rewind || s.date || work.phone.date}
+                    date={
+                      a.id === "calendar"
+                        ? rewind || todayISO()
+                        : rewind || s.date || work.phone.date
+                    }
                     time={s.time}
                   />
                 )}

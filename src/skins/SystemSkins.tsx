@@ -1,4 +1,4 @@
-﻿export { WeatherSkin, HealthSkin } from "./CalibratedSystemApps";
+export { WeatherSkin, HealthSkin } from "./CalibratedSystemApps";
 import { AudioPlayer, useTrack } from "../audio";
 import { useSkinState } from "../skinState";
 import {
@@ -24,8 +24,10 @@ import {
   Star,
   Users,
   Wallet,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { download } from "../io";
 import { safeMedia, type Item } from "../schema";
 import {
@@ -356,55 +358,221 @@ export function SafariSkin(p: Props) {
     </div>
   );
 }
+type CustomNote = {
+  id: string;
+  title: string;
+  body: string;
+  time: string;
+  folder: string;
+};
+type NoteRow = {
+  id: string;
+  title: string;
+  body: string;
+  time: string;
+  folder: string;
+  locked: boolean;
+  custom: boolean;
+  source?: Item;
+};
+function noteTime(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 export function NotesSkin(p: Props) {
-  const { q, setQ, items } = useContent(p, "备忘录");
+  const [q, setQ] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
-  const list = folder
-    ? items.filter((i) => (i.folder || "备忘录") === folder)
-    : items;
+  const [stored, setStored] = useSkinState<string[]>(p, "customNotes", []);
+  const [editor, setEditor] = useState<
+    | { id: string; title: string; body: string; folder: string; isNew: boolean }
+    | null
+  >(null);
+  const custom = useMemo(
+    () =>
+      stored.flatMap((raw) => {
+        try {
+          const n = JSON.parse(raw) as CustomNote;
+          return n && typeof n.id === "string" && typeof n.body === "string"
+            ? [n]
+            : [];
+        } catch {
+          return [];
+        }
+      }),
+    [stored],
+  );
+  const all: NoteRow[] = [
+    ...p.items.map((i) => ({
+      id: i.id,
+      title: i.title,
+      body: i.body,
+      time: i.time,
+      folder: i.folder || "备忘录",
+      locked: !!i.password,
+      custom: false,
+      source: i,
+    })),
+    ...custom.map((n) => ({
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      time: n.time,
+      folder: n.folder || "备忘录",
+      locked: false,
+      custom: true,
+    })),
+  ];
+  const list = all.filter(
+    (n) =>
+      (!folder || n.folder === folder) &&
+      (n.title + n.body).toLowerCase().includes(q.toLowerCase()),
+  );
+  const folders = [...new Set(all.map((n) => n.folder))];
+  const openNew = () =>
+    setEditor({
+      id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title: "",
+      body: "",
+      folder: folder || "备忘录",
+      isNew: true,
+    });
+  const saveNote = () => {
+    if (!editor) return;
+    const body = editor.body;
+    const title =
+      editor.title.trim() ||
+      body.trim().split("\n")[0].slice(0, 40) ||
+      "新备忘录";
+    const existing = custom.find((n) => n.id === editor.id);
+    const raw = JSON.stringify({
+      id: editor.id,
+      title,
+      body,
+      time: existing?.time || noteTime(),
+      folder: editor.folder,
+    } satisfies CustomNote);
+    setStored(
+      editor.isNew
+        ? [...stored, raw]
+        : stored.map((s) => {
+            try {
+              return JSON.parse(s).id === editor.id ? raw : s;
+            } catch {
+              return s;
+            }
+          }),
+    );
+    setEditor(null);
+  };
+  const deleteNote = () => {
+    if (!editor) return;
+    setStored(
+      stored.filter((s) => {
+        try {
+          return JSON.parse(s).id !== editor.id;
+        } catch {
+          return true;
+        }
+      }),
+    );
+    setEditor(null);
+  };
   return (
     <div className="catalog-skin native-notes">
       <Header p={p} />
-      <div className="catalog-scroll">
-        <button className="notes-back" onClick={() => setFolder(null)}>
-          <Folder size={17} />
-          文件夹
-        </button>
-        <h1>{folder || "所有备忘录"}</h1>
-        <SearchBox value={q} set={setQ} />
-        {!folder && (
-          <div className="note-folders">
-            {groupItems(items, "备忘录").map((g) => (
-              <button key={g} onClick={() => setFolder(g)}>
-                <Folder size={17} />
-                {g}
-                <small>
-                  {items.filter((i) => (i.folder || "备忘录") === g).length}
-                </small>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="notes-list">
-          {list.map((i) => (
-            <button key={i.id} onClick={() => p.onItem(i)}>
-              <strong>
-                {i.password && <LockKeyhole size={12} />} {i.title}
-              </strong>
-              <p>
-                <time>{i.time.slice(5, 10)}</time>{" "}
-                {i.password ? "已锁定的备忘录" : i.body.split("\n")[0]}
-              </p>
-              <small>{i.folder}</small>
+      {editor ? (
+        <div className="notes-editor">
+          <div className="notes-editor-bar">
+            <button onClick={() => setEditor(null)}>取消</button>
+            <strong>{editor.isNew ? "新建备忘录" : "编辑备忘录"}</strong>
+            <button className="notes-editor-done" onClick={saveNote}>
+              完成
             </button>
-          ))}
+          </div>
+          <input
+            className="notes-editor-title"
+            value={editor.title}
+            placeholder="标题"
+            onChange={(e) => setEditor({ ...editor, title: e.target.value })}
+          />
+          <textarea
+            className="notes-editor-body"
+            value={editor.body}
+            placeholder="开始写点什么…"
+            onChange={(e) => setEditor({ ...editor, body: e.target.value })}
+          />
+          <span className="notes-editor-time">
+            {custom.find((n) => n.id === editor.id)?.time || noteTime()}
+          </span>
+          {!editor.isNew && (
+            <button className="notes-editor-delete" onClick={deleteNote}>
+              <Trash2 size={14} /> 删除备忘录
+            </button>
+          )}
         </div>
-        <Empty items={list} />
-      </div>
-      <div className="notes-footer">
-        <span>{list.length} 则备忘录</span>
-        <Add p={p} label="新建备忘录" />
-      </div>
+      ) : (
+        <>
+          <div className="catalog-scroll">
+            <button className="notes-back" onClick={() => setFolder(null)}>
+              <Folder size={17} />
+              文件夹
+            </button>
+            <h1>{folder || "所有备忘录"}</h1>
+            <SearchBox value={q} set={setQ} />
+            {!folder && (
+              <div className="note-folders">
+                {folders.map((g) => (
+                  <button key={g} onClick={() => setFolder(g)}>
+                    <Folder size={17} />
+                    {g}
+                    <small>{all.filter((n) => n.folder === g).length}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="notes-list">
+              {list.map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() =>
+                    n.custom
+                      ? setEditor({
+                          id: n.id,
+                          title: n.title,
+                          body: n.body,
+                          folder: n.folder,
+                          isNew: false,
+                        })
+                      : n.source && p.onItem(n.source)
+                  }
+                >
+                  <strong>
+                    {n.locked && <LockKeyhole size={12} />} {n.title}
+                  </strong>
+                  <p>
+                    <time>{n.time.slice(5, 10)}</time>{" "}
+                    {n.locked ? "已锁定的备忘录" : n.body.split("\n")[0]}
+                  </p>
+                  <small>{n.folder}</small>
+                </button>
+              ))}
+            </div>
+            {!list.length && <p className="catalog-empty">暂无内容</p>}
+          </div>
+          <div className="notes-footer">
+            <span>{list.length} 则备忘录</span>
+            {p.creator ? (
+              <Add p={p} label="新建备忘录" />
+            ) : (
+              <button className="catalog-add" onClick={openNew}>
+                <Plus size={15} />
+                新建备忘录
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
