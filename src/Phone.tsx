@@ -4,6 +4,8 @@ import { NativeCalculator } from "./ios/Calculator";
 import { HomeLauncher } from "./launcher/HomeLauncher";
 import { useDeviceLayout } from "./launcher/layout";
 import { useDeviceClock, useDeviceBattery } from "./deviceStatus";
+import { wallpaperClass, wallpaperImage } from "./wallpaper";
+import { applyDailyWeather, todayISO } from "./weatherDaily";
 import "./launcher/launcher.css";
 import { NativeDetail, nativeDetailApps } from "./ios/Details";
 import "./ios/details.css";
@@ -305,11 +307,12 @@ function PhoneRuntime({
   const liveTime = useDeviceClock();
   const liveBattery = useDeviceBattery(work.phone.battery);
   const rewind = (s.ui?.settings?.rewind as string) || undefined;
-  const displayTime = creator
-    ? work.phone.time
-    : rewind
-      ? rewind.slice(5)
-      : liveTime;
+  const clockOverride = (s.ui?.settings?.clock as string) || undefined;
+  const runtimeWallpaper = (s.ui?.settings?.wallpaper as string) || undefined;
+  const wallpaper = runtimeWallpaper || work.phone.wallpaper;
+  const wallpaperStyle = wallpaperImage(wallpaper);
+  // 状态栏 / 锁屏大时钟始终显示几点几分：默认跟真机实时时间，玩家可在设置里固定
+  const displayTime = creator ? work.phone.time : clockOverride || liveTime;
   const plugin = getApp(app);
   useEffect(() => {
     const count = s.notifications.length;
@@ -337,7 +340,8 @@ function PhoneRuntime({
     >
       <KeyboardContext.Provider value={setKeyboard}>
         <div
-          className={`phone-screen wallpaper-${work.phone.wallpaper} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""} ${keyboard ? "keyboard-open" : ""}`}
+          className={`phone-screen ${wallpaperClass(wallpaper)} ${locked ? "is-locked" : ""} ${app ? "in-app" : ""} ${keyboard ? "keyboard-open" : ""}`}
+          style={wallpaperStyle}
           data-app={app}
           onDragStart={(e) => e.preventDefault()}
           onPointerDown={(e) => {
@@ -436,9 +440,11 @@ function PhoneRuntime({
             {locked && !(quickCamera && app === "camera") ? (
               <DeviceLock
                 work={
-                  s.date
-                    ? { ...work, phone: { ...work.phone, date: s.date } }
-                    : work
+                  rewind
+                    ? { ...work, phone: { ...work.phone, date: rewind } }
+                    : s.date
+                      ? { ...work, phone: { ...work.phone, date: s.date } }
+                      : work
                 }
                 time={displayTime}
                 notices={s.notifications}
@@ -520,7 +526,7 @@ function PhoneRuntime({
                     name={small ? undefined : a.name}
                     small={small}
                     custom={a.icon}
-                    date={s.date || work.phone.date}
+                    date={rewind || s.date || work.phone.date}
                     time={s.time}
                   />
                 )}
@@ -912,13 +918,22 @@ function AppContent({
   const [pwError, setPwError] = useState("");
   const [likes, setLikes] = useState<string[]>([]);
   const rewind = (state.ui?.settings?.rewind as string) || undefined;
+  const clock = (state.ui?.settings?.clock as string) || undefined;
+  const wallpaper =
+    (state.ui?.settings?.wallpaper as string) || work.phone.wallpaper;
   const viewTime =
     rewind && app.id !== "weather" ? rewind + " 23:59" : undefined;
+  // 天气按日期自动变化：优先跟随「时间回溯」选的日期，否则用真实今天
+  const weatherDate = rewind || todayISO();
   const shown = items
     .filter((i) => creator || visible(i, state, viewTime))
     .filter((i) =>
       (i.title + i.body + i.sender).toLowerCase().includes(q.toLowerCase()),
     );
+  const skinItems =
+    app.id === "weather" && !creator
+      ? shown.map((i, n) => applyDailyWeather(i, weatherDate, n))
+      : shown;
   const filtered =
     tab === "收藏"
       ? shown.filter((i) => i.favorite)
@@ -1017,7 +1032,7 @@ function AppContent({
               ui={state.ui?.[app.id]}
               onUi={creator ? undefined : onUi}
               name={name}
-              items={shown}
+              items={skinItems}
               creator={creator}
               onRead={onRead}
               onItem={read}
@@ -1090,6 +1105,8 @@ function AppContent({
           onUi={onUi}
           onOpen={onOpenApp}
           rewind={(state.ui?.settings?.rewind as string) || ""}
+          clock={clock}
+          wallpaper={wallpaper}
         />
       ) : app.id === "calculator" && !detail ? (
         <NativeCalculator

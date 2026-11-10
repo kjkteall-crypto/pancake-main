@@ -1,5 +1,12 @@
-import { useState, useEffect, useRef, useMemo, type ComponentType } from "react";
-import { useDeviceBattery } from "../deviceStatus";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  type ChangeEvent,
+  type ComponentType,
+} from "react";
+import { useDeviceBattery, useDeviceClock } from "../deviceStatus";
 import {
   Plane,
   Wifi,
@@ -16,11 +23,20 @@ import {
   ChevronRight,
   Search,
   Check,
+  Plus,
   Link,
   Globe,
   Mic,
 } from "lucide-react";
 import type { Work, Item, UiValue } from "../schema";
+import {
+  BUILTIN_PHOTOS,
+  CSS_WALLPAPERS,
+  UPLOAD_PREFIX,
+  isUpload,
+  wallpaperClass,
+  wallpaperImage,
+} from "../wallpaper";
 import { IOSToggle } from "../vendor/konsta/Toggle";
 import { NavigationPage, useNavigation } from "./Navigation";
 type Row = [ComponentType<{ size?: number }>, string, string];
@@ -44,6 +60,8 @@ function daysInMonth(y: number, m: number): number {
 }
 const WHEEL_ITEM_H = 36;
 const WHEEL_VISIBLE = 5;
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i);
 // iOS 风格滚动选择器（滚轮）：上下滑动选数字，中间高亮选中
 function Wheel({
   value,
@@ -131,6 +149,8 @@ export function NativeSettings({
   onUi,
   onOpen,
   rewind = "",
+  clock = "",
+  wallpaper,
 }: {
   work: Work;
   items: Item[];
@@ -140,6 +160,8 @@ export function NativeSettings({
   onUi?: (key: string, value: UiValue) => void;
   onOpen?: (app: string) => void;
   rewind?: string;
+  clock?: string;
+  wallpaper?: string;
 }) {
   const liveBattery = useDeviceBattery(work.phone.battery);
   const [picker, setPicker] = useState<{ y: number; m: number; d: number }>({
@@ -148,6 +170,11 @@ export function NativeSettings({
     d: 1,
   });
   const [showRewind, setShowRewind] = useState(false);
+  const liveClock = useDeviceClock();
+  const [showClock, setShowClock] = useState(false);
+  const [clockPicker, setClockPicker] = useState({ h: 0, m: 0 });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState("");
   const today = (() => {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, "0");
@@ -167,11 +194,21 @@ export function NativeSettings({
     [wifi, setWifi] = useState(true),
     [bluetooth, setBluetooth] = useState(true),
     [lowPower, setLowPower] = useState(false);
-  const row = (label: string, value?: string, click?: () => void) => (
+  const row = (
+    label: string,
+    value?: string,
+    click?: () => void,
+    reserveArrow = false,
+  ) => (
     <button key={label} className="settings-native-row" onClick={click}>
       <span>{label}</span>
       <span className="settings-detail-value">{value}</span>
-      {click && <ChevronRight size={16} />}
+      {(click || reserveArrow) && (
+        <ChevronRight
+          size={16}
+          style={click ? undefined : { visibility: "hidden" }}
+        />
+      )}
     </button>
   );
   const toggle = (label: string, value: boolean, set: (v: boolean) => void) => (
@@ -180,6 +217,56 @@ export function NativeSettings({
       <IOSToggle label={label} checked={value} onChange={set} />
     </div>
   );
+  // 选一张本地图片：先缩到最长边 1280，再压成较小的 JPEG，避免存档过大
+  const handleUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setUploadError("请选择图片文件");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => setUploadError("图片读取失败，换一张试试");
+    reader.onload = () => {
+      const img = document.createElement("img");
+      img.onerror = () => setUploadError("图片读取失败，换一张试试");
+      img.onload = () => {
+        try {
+          const max = 1280;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("no canvas");
+          ctx.drawImage(img, 0, 0, w, h);
+          onUi?.(
+            "wallpaper",
+            UPLOAD_PREFIX + canvas.toDataURL("image/jpeg", 0.82),
+          );
+          setUploadError("");
+        } catch {
+          setUploadError("这张图片无法使用，换一张试试");
+        }
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+  const openClockPicker = () => {
+    if (!rewind) return; // Time is locked while Auto is on.
+    const [h, m] = (clock || liveClock).split(":").map(Number);
+    setClockPicker({
+      h: Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 0,
+      m: Number.isFinite(m) ? Math.min(59, Math.max(0, m)) : 0,
+    });
+    setShowClock(true);
+  };
+  // Keep follow-real-time behavior available without showing it in the UI.
+  const resetClock = () => onUi?.("clock", "");
   const sub = () => {
     switch (nav.page) {
       case "通用":
@@ -192,6 +279,62 @@ export function NativeSettings({
             {row("语言与地区", "简体中文", () => nav.push("语言与地区"))}
           </div>
         );
+      case "墙纸": {
+        const current = wallpaper || work.phone.wallpaper;
+        const thumb = (id: string, name: string) => {
+          const chosen = current === id;
+          return (
+            <button
+              key={id}
+              className={`wallpaper-choice ${chosen ? "is-current" : ""}`}
+              onClick={() => onUi?.("wallpaper", id)}
+            >
+              <span
+                className={`wallpaper-thumb ${wallpaperClass(id)}`}
+                style={wallpaperImage(id)}
+              >
+                {chosen && <Check size={18} />}
+              </span>
+              <small>{name}</small>
+            </button>
+          );
+        };
+        return (
+          <div className="wallpaper-picker">
+            <div
+              className={`wallpaper-preview ${wallpaperClass(current)}`}
+              style={wallpaperImage(current)}
+            />
+            <button
+              className={`wallpaper-upload-btn ${isUpload(current) ? "is-current" : ""}`}
+              onClick={() => fileRef.current?.click()}
+            >
+              {isUpload(current) ? (
+                <span
+                  className={`wallpaper-upload-mini ${wallpaperClass(current)}`}
+                  style={wallpaperImage(current)}
+                />
+              ) : (
+                <Plus size={20} />
+              )}
+              <span>{isUpload(current) ? "更换我的图片" : "上传图片"}</span>
+              {isUpload(current) && <Check size={18} />}
+            </button>
+            <div className="wallpaper-choices">
+              {CSS_WALLPAPERS.map((w) => thumb(w.id, w.name))}
+              {BUILTIN_PHOTOS.map((w) => thumb(w.id, w.name))}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handleUpload}
+            />
+            {uploadError && <p className="wallpaper-error">{uploadError}</p>}
+          </div>
+        );
+      }
       case "辅助功能":
         return (
           <div className="settings-group">
@@ -270,18 +413,27 @@ export function NativeSettings({
         return (
           <div className="settings-group">
             {toggle("自动设置", autoOn, (v) => {
-              if (v) onUi?.("rewind", "");
-              else openPicker();
+              if (v) {
+                onUi?.("rewind", "");
+                resetClock();
+              } else openPicker();
             })}
-            {row("时区", "中国标准时间")}
+            {row("时区", "中国标准时间", undefined, true)}
             {row(
-              "时间",
+              "日期",
               autoOn
                 ? formatCNDate(today)
                 : rewind
                   ? formatCNDate(rewind)
                   : "未设置",
               autoOn ? undefined : openPicker,
+              true,
+            )}
+            {row(
+              "时间",
+              clock || liveClock,
+              autoOn ? undefined : openClockPicker,
+              true,
             )}
           </div>
         );
@@ -493,6 +645,60 @@ export function NativeSettings({
             <button
               className="rewind-sheet-cancel"
               onClick={() => setShowRewind(false)}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+      {showClock && (
+        <div
+          className="rewind-sheet-backdrop"
+          onClick={() => setShowClock(false)}
+        >
+          <div className="rewind-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="rewind-sheet-grabber" />
+            <div className="date-wheels">
+              <Wheel
+                value={clockPicker.h}
+                options={HOUR_OPTIONS}
+                onChange={(h) => setClockPicker((p) => ({ ...p, h }))}
+                format={(v) => `${String(v).padStart(2, "0")}时`}
+                width={110}
+              />
+              <Wheel
+                value={clockPicker.m}
+                options={MINUTE_OPTIONS}
+                onChange={(m) => setClockPicker((p) => ({ ...p, m }))}
+                format={(v) => `${String(v).padStart(2, "0")}分`}
+                width={110}
+              />
+              <div className="wheel-indicator" />
+            </div>
+            <button
+              className="rewind-sheet-confirm"
+              onClick={() => {
+                const hh = String(clockPicker.h).padStart(2, "0");
+                const mm = String(clockPicker.m).padStart(2, "0");
+                onUi?.("clock", `${hh}:${mm}`);
+                setShowClock(false);
+              }}
+            >
+              完成
+            </button>
+            {/* Hidden reset-clock entry; enabling Auto also calls resetClock. */}
+            <button
+              className="rewind-sheet-reset"
+              style={{ display: "none" }}
+              aria-label="reset-clock"
+              onClick={() => {
+                resetClock();
+                setShowClock(false);
+              }}
+            />
+            <button
+              className="rewind-sheet-cancel"
+              onClick={() => setShowClock(false)}
             >
               取消
             </button>
