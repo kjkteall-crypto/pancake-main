@@ -168,16 +168,35 @@ function PhoneRuntime({
   const [own, setOwn] = useState(() => initialRuntime(work));
   const [ready, setReady] = useState(creator || !!external);
   const [loadError, setLoadError] = useState("");
+  // Default: a fresh phone on every launch. Add ?memory=1 to the URL to
+  // restore progress persistence without editing code or redeploying.
+  const memoryMode =
+    new URLSearchParams(window.location.search).get("memory") === "1";
   useEffect(() => {
     const el = shell.current;
     if (!el) return;
     const fit = () => {
+      const parent = el.parentElement!;
+      const w = parent.clientWidth;
+      const cs = getComputedStyle(parent);
+      const availH =
+        parent.clientHeight -
+        (parseFloat(cs.paddingTop) || 0) -
+        (parseFloat(cs.paddingBottom) || 0);
+      // On real phones: fill the width, but scale the whole 390x844 screen
+      // down so the bottom home indicator is never clipped or unreachable.
+      if (!creator && !external && w <= 500) {
+        setDeviceScale(
+          Math.max(0.4, Math.min(1, w / 390, (availH - 24) / 844)),
+        );
+        return;
+      }
       setDeviceScale(
         Math.max(
           0.4,
           Math.min(
             1,
-            (el.parentElement!.clientWidth - 24) / 407,
+            (w - 24) / 407,
             (window.innerHeight - (creator ? 170 : external ? 150 : 40)) / 866,
           ),
         ),
@@ -203,6 +222,15 @@ function PhoneRuntime({
   useEffect(() => {
     let active = true;
     if (creator || external) return;
+    if (!memoryMode) {
+      // Fresh start: begin from scratch and discard any old save.
+      setOwn(dispatch(work, initialRuntime(work), "start"));
+      setReady(true);
+      void db.saves.delete(work.id).catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
     void db.saves
       .get(work.id)
       .then((saved) => {
@@ -223,13 +251,13 @@ function PhoneRuntime({
     return () => {
       active = false;
     };
-  }, [work.id, work.updatedAt, creator, external]);
+  }, [work.id, work.updatedAt, creator, external, memoryMode]);
   useEffect(() => {
-    if (!creator && !external && ready)
+    if (!creator && !external && ready && memoryMode)
       void db.saves
         .put({ id: work.id, state: own })
         .catch(() => setLoadError("存档失败，请检查浏览器存储权限。"));
-  }, [own, creator, work.id, external, ready]);
+  }, [own, creator, work.id, external, ready, memoryMode]);
   useEffect(() => {
     if (creator || !ready) return;
     const interval = setInterval(() => {
@@ -313,8 +341,11 @@ function PhoneRuntime({
   const runtimeWallpaper = (s.ui?.settings?.wallpaper as string) || undefined;
   const wallpaper = runtimeWallpaper || work.phone.wallpaper;
   const wallpaperStyle = wallpaperImage(wallpaper);
-  // 状态栏 / 锁屏大时钟始终显示几点几分：默认跟真机实时时间，玩家可在设置里固定
-  const displayTime = creator ? work.phone.time : clockOverride || liveTime;
+  // Auto mode always follows the real device clock, even if an old manual
+  // clock value is left in the save. Manual clock applies only while rewinding.
+  const displayTime = creator
+    ? work.phone.time
+    : (rewind && clockOverride) || liveTime;
   const plugin = getApp(app);
   useEffect(() => {
     const count = s.notifications.length;

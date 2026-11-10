@@ -16,14 +16,19 @@
 .story-runtime .phone-shell {
   margin: auto;
 }
-/* 手机屏幕：去掉外壳和左右黑边，让界面铺满整屏 */
+/* Real phones: remove ONLY the left/right bezel. Keep the top/bottom
+   breathing room and the original zoom scaling, so the home indicator
+   stays reachable and gesture coordinates stay correct. */
 @media (max-width: 500px) {
   .story-runtime {
     background: #000;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .story-runtime .phone-shell.ios18 {
-    width: 100vw;
-    height: 100dvh;
+    width: calc(390px * var(--phone-scale));
+    height: calc(844px * var(--phone-scale));
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -35,10 +40,6 @@
     display: none;
   }
   .story-runtime .ios18 .phone-screen {
-    width: 100vw;
-    height: 100dvh;
-    zoom: 1;
-    border: 0;
     border-radius: 0;
   }
 }

@@ -20,8 +20,25 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         clientsClaim: true,
-        globPatterns: ["**/*.{js,css,html,svg,json,txt,png,jpg}"],
+        // Disable Workbox's default offline HTML fallback so our NetworkFirst
+        // navigation rule below actually takes effect.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        navigateFallback: null as any,
+        // Do NOT precache index.html: every browser should fetch the newest
+        // page and therefore the newest hashed JS/CSS on each launch.
+        globPatterns: ["**/*.{js,css,svg,json,txt,png,jpg}"],
         maximumFileSizeToCacheInBytes: 4000000,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "html-pages",
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 5 },
+            },
+          },
+        ],
       },
     }),
   ],
