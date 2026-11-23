@@ -145,6 +145,10 @@ function PhoneRuntime({
   const noticesSeen = useRef(0);
   const [contextApp, setContextApp] = useState("");
   const [deviceScale, setDeviceScale] = useState(0.84);
+  // Only used on real phones: a tiny vertical squeeze when the 390x844
+  // screen is taller than the viewport. Width is NEVER reduced, so the
+  // phone always fills the screen edge to edge on the left and right.
+  const [deviceSqueeze, setDeviceSqueeze] = useState(1);
   // Baseline used to tell an OS keyboard apart from a real window resize.
   const viewportBase = useRef({ w: window.innerWidth, h: window.innerHeight });
   const shell = useRef<HTMLDivElement>(null);
@@ -195,14 +199,18 @@ function PhoneRuntime({
         parent.clientHeight -
         (parseFloat(cs.paddingTop) || 0) -
         (parseFloat(cs.paddingBottom) || 0);
-      // On real phones: fill the width, but scale the whole 390x844 screen
-      // down so the bottom home indicator is never clipped or unreachable.
+      // Real phones: the width alone decides the scale, so there is never
+      // a gap on the left or right. The real screen box is 393x852; if it
+      // is taller than the viewport, squeeze only the vertical axis a
+      // little instead of shrinking the whole phone (which caused gaps
+      // and pushed the home indicator off screen).
       if (!creator && !external && w <= 500) {
-        setDeviceScale(
-          Math.max(0.4, Math.min(1, w / 390, (availH - 24) / 844)),
-        );
+        const scale = Math.max(0.4, Math.min(w / 393, 3));
+        setDeviceScale(scale);
+        setDeviceSqueeze(Math.min(1, availH / (852 * scale)));
         return;
       }
+      setDeviceSqueeze(1);
       setDeviceScale(
         Math.max(
           0.4,
@@ -357,6 +365,14 @@ function PhoneRuntime({
   const displayTime = creator
     ? work.phone.time
     : (rewind && clockOverride) || liveTime;
+  // The lock screen date must come from the SAME clock as the lock screen
+  // time above: the real device date in Auto mode, and the date picked in
+  // Settings while rewinding. Story dates (s.date / work.phone.date) belong
+  // to in-story content only, so they must not leak onto the lock screen.
+  // Keyword: lockDateFollowsClock
+  const lockDate = creator
+    ? s.date || work.phone.date
+    : rewind || todayISO();
   const plugin = getApp(app);
   useEffect(() => {
     const count = s.notifications.length;
@@ -379,7 +395,12 @@ function PhoneRuntime({
   return (
     <div
       ref={shell}
-      style={{ "--phone-scale": deviceScale } as CSSProperties}
+      style={
+        {
+          "--phone-scale": deviceScale,
+          "--phone-y": deviceSqueeze,
+        } as CSSProperties
+      }
       className={`phone-shell ios18 ${work.phone.theme === "dark" ? "dark-phone" : ""}`}
     >
         <div
@@ -400,7 +421,7 @@ function PhoneRuntime({
             }
             const box = e.currentTarget.getBoundingClientRect(),
               x = (e.clientX - box.left) / deviceScale,
-              y = (e.clientY - box.top) / deviceScale;
+              y = (e.clientY - box.top) / (deviceScale * deviceSqueeze);
             gesture.current = {
               x,
               y,
@@ -416,7 +437,7 @@ function PhoneRuntime({
           onPointerUp={(e) => {
             clearTimeout(pressTimer.current);
             const box = e.currentTarget.getBoundingClientRect(),
-              y = (e.clientY - box.top) / deviceScale,
+              y = (e.clientY - box.top) / (deviceScale * deviceSqueeze),
               g = gesture.current;
             const dy = y - g.y;
             if (g.zone === "top" && dy > 65)
@@ -481,13 +502,10 @@ function PhoneRuntime({
           <AnimatePresence mode="wait">
             {locked && !(quickCamera && app === "camera") ? (
               <DeviceLock
-                work={
-                  rewind
-                    ? { ...work, phone: { ...work.phone, date: rewind } }
-                    : s.date
-                      ? { ...work, phone: { ...work.phone, date: s.date } }
-                      : work
-                }
+                work={{
+                  ...work,
+                  phone: { ...work.phone, date: lockDate },
+                }}
                 time={displayTime}
                 notices={s.notifications}
                 onDismiss={dismissNotice}

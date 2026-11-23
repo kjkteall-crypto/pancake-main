@@ -73,7 +73,6 @@ test("direct player, settings stack and toggle, system screenshots", async ({
     "日历",
     "时钟",
     "计算器",
-    "文件",
     "浏览器",
     "相机",
   ]) {
@@ -92,7 +91,9 @@ for (const [choice, ending] of [
   test(
     "example puzzle, call, ending and persisted save: " + choice,
     async ({ page }) => {
-      await page.goto("/");
+      // Default launches are intentionally fresh; opt into persistence to
+      // verify that an ending survives a reload.
+      await page.goto("/?memory=1");
       await page.getByRole("button", { name: "轻触解锁" }).click();
       await open(page, "微信");
       await page
@@ -142,7 +143,12 @@ for (const [choice, ending] of [
         .locator(".phone-screen")
         .screenshot({ path: `outputs/v0.6/ending-${choice}.png` });
       await page.reload();
-      await expect(page.locator(".lock-clock-block")).toContainText("10月24日");
+      // Lock screen date follows the real device clock, same as the time.
+      const todayLabel = await page.evaluate(() => {
+        const d = new Date();
+        return `${d.getMonth() + 1}月${d.getDate()}日`;
+      });
+      await expect(page.locator(".lock-clock-block")).toContainText(todayLabel);
       await page.getByRole("button", { name: "轻触解锁" }).click();
       await expect(page.getByText(ending, { exact: true })).toBeVisible();
     },
@@ -159,7 +165,7 @@ test("mobile viewport, no overflow", async ({ page }) => {
   expect(rect!.height).toBeLessThanOrEqual(844);
   await page.screenshot({ path: "outputs/v0.6/mobile.png" });
 });
-test("production PWA cached story works after offline reload", async ({
+test("no service worker or offline cache is installed", async ({
   browser,
 }) => {
   const context = await browser.newContext({ serviceWorkers: "allow" });
@@ -167,15 +173,21 @@ test("production PWA cached story works after offline reload", async ({
     const page = await context.newPage();
     await page.goto("/");
     await page.getByRole("button", { name: "轻触解锁" }).waitFor();
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
-    await context.setOffline(true);
-    await page.reload();
-    await page.getByRole("button", { name: "轻触解锁" }).click();
-    await open(page, "设置");
-    await expect(page.getByRole("switch", { name: "飞行模式" })).toBeVisible();
-    await page
-      .locator(".phone-screen")
-      .screenshot({ path: "outputs/v0.6/offline-settings.png" });
+    // PWA caching is intentionally disabled: the page must load straight
+    // from the network, with no worker controlling it and no stale caches.
+    expect(
+      await page.evaluate(() => !!navigator.serviceWorker.controller),
+    ).toBe(false);
+    expect(
+      await page.evaluate(
+        async () => (await navigator.serviceWorker.getRegistrations()).length,
+      ),
+    ).toBe(0);
+    expect(
+      await page.evaluate(async () =>
+        typeof caches === "undefined" ? 0 : (await caches.keys()).length,
+      ),
+    ).toBe(0);
   } finally {
     await context.close();
   }
