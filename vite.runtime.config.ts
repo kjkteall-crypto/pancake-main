@@ -9,6 +9,11 @@ export default defineConfig(({ command }) => ({
     localIconPlugin(command),
     react(),
     VitePWA({
+      // PWA / offline cache is OFF. Every launch loads the page straight from
+      // the network: no precache, no stale HTML, no Service Worker waiting on
+      // the network before the page can render. Set to false to restore the
+      // offline PWA later without rewriting this file. Keyword: disablePwaCache
+      disable: true,
       registerType: "autoUpdate",
       manifest: {
         name: "捡手机",

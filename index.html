@@ -8,6 +8,50 @@
     />
     <meta name="theme-color" content="#f5f4f0" />
     <title>捡手机</title>
+    <script>
+      /* Remove the service worker installed by older builds and wipe its
+         caches. From now on the page loads straight from the network with no
+         precache and no stale offline copy. This runs before the app bundle,
+         so it can never be served from an old cache. Keyword: disablePwaCache */
+      (function () {
+        var already = false;
+        try {
+          already = sessionStorage.getItem("swCleanupDone") === "1";
+        } catch (e) {}
+        var sw = navigator.serviceWorker;
+        if (sw && typeof sw.getRegistrations === "function") {
+          sw.getRegistrations()
+            .then(function (regs) {
+              if (!regs.length) return null;
+              return Promise.all(
+                regs.map(function (r) {
+                  return r.unregister();
+                }),
+              );
+            })
+            .then(function (removed) {
+              if (!removed || !removed.length || already) return;
+              var marked = false;
+              try {
+                sessionStorage.setItem("swCleanupDone", "1");
+                marked = true;
+              } catch (e) {}
+              if (marked) window.location.reload();
+            })
+            .catch(function () {});
+        }
+        if (window.caches && typeof caches.keys === "function") {
+          caches
+            .keys()
+            .then(function (keys) {
+              keys.forEach(function (k) {
+                caches.delete(k);
+              });
+            })
+            .catch(function () {});
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

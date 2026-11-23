@@ -28,9 +28,11 @@ body:has(.story-runtime) {
 .story-runtime .phone-shell {
   margin: auto;
 }
-/* Real phones: remove ONLY the left/right bezel. Keep the top/bottom
-   breathing room and the original zoom scaling, so the home indicator
-   stays reachable and gesture coordinates stay correct. */
+/* Real phones: the width is driven by --phone-scale alone, so the phone
+   fills the screen edge to edge on the left/right. --phone-y is a tiny
+   vertical-only squeeze when 852 * scale is taller than the viewport;
+   it keeps the status bar and home indicator on screen without
+   shrinking the width (which used to leave black bars on the sides). */
 @media (max-width: 500px) {
   .story-runtime {
     background: #000;
@@ -39,8 +41,8 @@ body:has(.story-runtime) {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .story-runtime .phone-shell.ios18 {
-    width: calc(390px * var(--phone-scale));
-    height: calc(844px * var(--phone-scale));
+    width: calc(393px * var(--phone-scale));
+    height: calc(852px * var(--phone-scale) * var(--phone-y, 1));
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -51,7 +53,11 @@ body:has(.story-runtime) {
   .story-runtime .phone-shell.ios18::after {
     display: none;
   }
+  /* Keep the rounded corners at the top and bottom of the screen. Shrink
+     the screen box itself (not via transform) so bottom-anchored UI like
+     the home indicator stays inside the visible area. */
   .story-runtime .ios18 .phone-screen {
-    border-radius: 0;
+    height: calc(852px * var(--phone-y, 1));
+    border-radius: 40px;
   }
 }
